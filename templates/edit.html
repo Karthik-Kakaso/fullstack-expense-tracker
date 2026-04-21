@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Expense</title>
+</head>
+<body>
+
+<h1>Edit Expense</h1>
+
+<form method="POST" action="/edit/{{ expense.id }}">
+    <input type="text" name="amount" value="{{ expense.amount }}" required><br><br>
+
+    <select name="category_id" required>
+        {% for category in categories %}
+            <option value="{{ category.id }}" {% if category.id == expense.category_id %}selected{% endif %}>
+                {{ category.name }}
+            </option>
+        {% endfor %}
+    </select><br><br>
+
+    <input type="date" name="date" value="{{ expense.date }}" required><br><br>
+
+    <input type="text" name="note" value="{{ expense.note }}"><br><br>
+
+    <button type="submit">Update Expense</button>
+</form>
+
+<br>
+<a href="/">Cancel and go back</a>
+
+</body>
+</html>

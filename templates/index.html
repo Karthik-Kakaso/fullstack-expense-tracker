@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Expense Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="container"> <h1>Add Expense</h1>
+
+    <form method="POST" action="/add">
+        <input type="text" name="amount" placeholder="Amount" required><br><br>
+
+        <select name="category_id" required>
+            <option value="" disabled selected>Select a Category</option>
+            {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select><br><br>
+
+        <input type="date" name="date" required><br><br>
+
+        <input type="text" name="note" placeholder="Note"><br><br>
+
+        <button type="submit">Add Expense</button>
+    </form>
+    <h2>Monthly Budgets</h2>
+    <div class="budget-container">
+        {% for budget in budgets %}
+        <div class="budget-card">
+            <div class="budget-header">
+                <span class="budget-name"><span class="dot {{ budget.color_class }}-bg"></span>{{ budget.name }}</span>
+                <span class="budget-amounts">₹{{ budget.spent }} / ₹{{ budget.limit }} <span class="badge {{ budget.color_class }}-badge">{{ budget.status }}</span></span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill {{ budget.color_class }}-bg" style="width: {{ budget.percentage }}%;"></div>
+            </div>
+            <div class="budget-footer">
+                <span>₹0</span>
+                {% if budget.remaining < 0 %}
+                <span class="danger-text">+₹{{ budget.remaining_abs }} over limit</span>
+                {% else %}
+                <span class="warning-text">₹{{ budget.remaining }} remaining</span>
+                {% endif %}
+                <span>₹{{ budget.limit }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h3>Set a Budget Limit</h3>
+    <form class="budget-form" method="POST" action="/set_budget">
+        <select name="category_id" required>
+            <option value="" disabled selected>Select category</option>
+            {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+        
+        <input type="number" step="0.01" name="limit" placeholder="₹ Monthly limit" required>
+        
+        <button type="submit">Save budget</button>
+    </form>	
+
+    <h2>All Expenses</h2>
+    <form class="filter-form" method="GET" action="/">
+        <input type="text" name="q" placeholder="Search notes or categories..." value="{{ request.args.get('q', '') }}">
+        <input type="date" name="start_date" value="{{ request.args.get('start_date', '') }}" title="Start Date">
+        <input type="date" name="end_date" value="{{ request.args.get('end_date', '') }}" title="End Date">
+        <button type="submit">Filter</button>
+        <button type="submit" formaction="/export" class="export-btn">Export CSV</button>
+        <a href="/" class="clear-btn">Clear</a>
+    </form>
+
+    <div class="dashboard-cards">
+        <div class="card">
+            <h4>Today</h4>
+            <h2>₹{{ daily }}</h2>
+        </div>
+        <div class="card">
+            <h4>This Week</h4>
+            <h2>₹{{ weekly }}</h2>
+        </div>
+        <div class="card">
+            <h4>This Month</h4>
+            <h2>₹{{ monthly }}</h2>
+        </div>
+        <div class="card total-card">
+            <h4>All Time</h4>
+            <h2>₹{{ total }}</h2>
+        </div>
+    </div>
+
+    <div class="charts-container">
+        <div class="chart-box">
+            <h3>Expenses by Category</h3>
+            <canvas id="expenseChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>Monthly Trend</h3>
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
+
+    <table border="1" id="expenseTable"> 
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)" style="cursor: pointer;" title="Sort by ID">ID ↕</th>
+                <th onclick="sortTable(1)" style="cursor: pointer;" title="Sort by Amount">Amount ↕</th>
+                <th onclick="sortTable(2)" style="cursor: pointer;" title="Sort by Category">Category ↕</th>
+                <th onclick="sortTable(3)" style="cursor: pointer;" title="Sort by Date">Date ↕</th>
+                <th>Note</th>
+                <th>Action</th> 
+            </tr>
+        </thead>
+        <tbody>
+            {% for expense in expenses %}
+            <tr>
+                <td>{{ expense.id }}</td>
+                <td>{{ expense.amount }}</td>
+                <td>{{ expense.category_name }}</td>
+                <td>{{ expense.date }}</td>
+                <td>{{ expense.note }}</td>
+                <td>
+                    <a href="/edit/{{ expense.id }}">Edit</a> | 
+                    <a href="/delete/{{ expense.id }}" onclick="return confirm('Are you sure you want to delete this expense? This cannot be undone.');" style="color: #EF4444;">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+<script>
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+        
+        // Extract names and totals from the Python data
+        const chartLabels = [
+            {% for row in chart_data %} "{{ row.name }}", {% endfor %}
+        ];
+        const chartValues = [
+            {% for row in chart_data %} {{ row.total }}, {% endfor %}
+        ];
+
+        // Draw the Pie Chart
+        new Chart(ctx, {
+            type: 'doughnut', // Doughnut charts look a bit more modern than pie charts!
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    data: chartValues,
+                    backgroundColor: ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { 
+                        position: 'bottom',
+                        labels: { color: '#E5E7EB' } // ADD THIS LINE for white text!
+                    }
+                }
+            }
+        });
+        // --- NEW: Draw the Stacked Bar Chart ---
+        const barCtx = document.getElementById('barChart').getContext('2d');
+        
+        // 1. Get raw data from Python
+        const rawBarData = [
+            {% for row in monthly_chart_data %}
+            { month: "{{ row.month }}", category: "{{ row.category }}", total: {{ row.total }} },
+            {% endfor %}
+        ];
+
+        // 2. Extract unique months for the X-axis
+        const barLabels = [...new Set(rawBarData.map(d => d.month))];
+
+        // 3. Extract unique categories to create the color stacks
+        const categoriesList = [...new Set(rawBarData.map(d => d.category))];
+        const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']; // Matches your doughnut colors
+
+        // 4. Build the datasets dynamically
+        const barDatasets = categoriesList.map((cat, index) => {
+            return {
+                label: cat,
+                backgroundColor: colors[index % colors.length],
+                data: barLabels.map(m => {
+                    const match = rawBarData.find(d => d.month === m && d.category === cat);
+                    return match ? match.total : 0;
+                }),
+                borderRadius: 4,
+                maxBarThickness: 30 // Keeps the bars from getting too wide
+            };
+        });
+
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: barLabels,
+                datasets: barDatasets
+            },
+            options: {
+                responsive: true,
+                plugins: { 
+                    legend: { position: 'bottom', labels: { color: '#E5E7EB' } } 
+                },
+                scales: {
+                    x: { 
+                        // Removed stacked: true
+                        ticks: { color: '#9CA3AF' }, 
+                        grid: { display: false } 
+                    },
+                    y: { 
+                        // Removed stacked: true
+                        ticks: { color: '#9CA3AF' }, 
+                        grid: { color: '#374151' } 
+                    }
+                }
+            }
+        });
+       // --- NEW: Interactive Table Sorting ---
+        function sortTable(n) {
+            var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+            table = document.getElementById("expenseTable");
+            switching = true;
+            dir = "asc"; // Set the sorting direction to ascending
+
+            while (switching) {
+                switching = false;
+                rows = table.getElementsByTagName("TR");
+
+                // Loop through all table rows (except the headers in position 0):
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[n];
+                    y = rows[i + 1].getElementsByTagName("TD")[n];
+                    
+                    let valX = x.innerHTML.toLowerCase();
+                    let valY = y.innerHTML.toLowerCase();
+                    
+                    // If sorting the Amount or ID column, treat as numbers instead of text
+                    if (!isNaN(parseFloat(valX)) && !isNaN(parseFloat(valY))) {
+                        valX = parseFloat(valX);
+                        valY = parseFloat(valY);
+                    }
+
+                    if (dir == "asc") {
+                        if (valX > valY) { shouldSwitch = true; break; }
+                    } else if (dir == "desc") {
+                        if (valX < valY) { shouldSwitch = true; break; }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchcount ++;
+                } else {
+                    if (switchcount == 0 && dir == "asc") {
+                        dir = "desc";
+                        switching = true;
+                    }
+                }
+            }
+        }
+
+            </script> 
+</body>
+</html>
