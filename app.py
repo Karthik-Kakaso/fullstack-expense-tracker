@@ -7,9 +7,9 @@ import io
 
 app = Flask(__name__)
 def get_db_connection():
-    # This tells the server exactly which folder app.py is sitting in
+   
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    # This safely connects that folder to your database file
+   
     db_path = os.path.join(BASE_DIR, 'database', 'expenses.db')
     
     conn = sqlite3.connect(db_path)
@@ -32,7 +32,7 @@ def home():
     weekly_total = conn.execute('SELECT SUM(amount) FROM expenses WHERE date >= ?', (week_str,)).fetchone()[0] or 0
     monthly_total = conn.execute('SELECT SUM(amount) FROM expenses WHERE date >= ?', (month_str,)).fetchone()[0] or 0
     
-    # --- Budget Tracking Logic ---
+   
     category_data = conn.execute('''
         SELECT c.name, c.monthly_limit, 
                COALESCE(SUM(e.amount), 0) as spent
@@ -62,7 +62,7 @@ def home():
             'status': status, 'color_class': color_class
         })
 
-    # --- Advanced Filter Engine ---
+   
     search_query = request.args.get('q', '')
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
@@ -88,7 +88,7 @@ def home():
     query += ' ORDER BY expenses.date DESC'
     expenses = conn.execute(query, params).fetchall()
     
-    # --- THE MISSING LINES ARE BACK ---
+  
     categories = conn.execute('SELECT * FROM categories').fetchall()
     total_result = conn.execute('SELECT SUM(amount) FROM expenses').fetchone()[0]
     total_amount = total_result if total_result is not None else 0
@@ -96,7 +96,6 @@ def home():
         SELECT categories.name, SUM(expenses.amount) as total
         FROM expenses JOIN categories ON expenses.category_id = categories.id GROUP BY categories.name
     ''').fetchall()
-   # --- NEW: Stacked Bar Chart Data ---
     monthly_chart_data = conn.execute('''
         SELECT strftime('%Y-%m', expenses.date) as month, categories.name as category, SUM(expenses.amount) as total
         FROM expenses
@@ -135,7 +134,7 @@ def set_budget():
     new_limit = request.form['limit']
 
     conn = get_db_connection()
-    # Update the monthly_limit for the specific category
+   
     conn.execute('UPDATE categories SET monthly_limit = ? WHERE id = ?', (new_limit, category_id))
     conn.commit()
     conn.close()
@@ -177,7 +176,7 @@ def delete_expense(id):
 
 @app.route('/export')
 def export_csv():
-    # 1. Grab the current filters from the URL
+    
     search_query = request.args.get('q', '')
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
@@ -205,18 +204,17 @@ def export_csv():
     expenses = conn.execute(query, params).fetchall()
     conn.close()
 
-    # 2. Create the CSV file in memory
+  
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Write the column headers
     writer.writerow(['ID', 'Amount (INR)', 'Category', 'Date', 'Note'])
     
-    # Write the actual data rows
+   
     for exp in expenses:
         writer.writerow([exp['id'], exp['amount'], exp['category_name'], exp['date'], exp['note']])
     
-    # 3. Send it to the browser as a downloaded file
+   
     return Response(
         output.getvalue(),
         mimetype="text/csv",
