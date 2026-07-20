@@ -135,7 +135,7 @@
 <script>
         const ctx = document.getElementById('expenseChart').getContext('2d');
         
-        // Extract names and totals from the Python data
+       
         const chartLabels = [
             {% for row in chart_data %} "{{ row.name }}", {% endfor %}
         ];
@@ -143,9 +143,9 @@
             {% for row in chart_data %} {{ row.total }}, {% endfor %}
         ];
 
-        // Draw the Pie Chart
+      
         new Chart(ctx, {
-            type: 'doughnut', // Doughnut charts look a bit more modern than pie charts!
+            type: 'doughnut', 
             data: {
                 labels: chartLabels,
                 datasets: [{
@@ -159,29 +159,28 @@
                 plugins: {
                     legend: { 
                         position: 'bottom',
-                        labels: { color: '#E5E7EB' } // ADD THIS LINE for white text!
+                        labels: { color: '#E5E7EB' } 
                     }
                 }
             }
         });
-        // --- NEW: Draw the Stacked Bar Chart ---
+    
         const barCtx = document.getElementById('barChart').getContext('2d');
         
-        // 1. Get raw data from Python
+       
         const rawBarData = [
             {% for row in monthly_chart_data %}
             { month: "{{ row.month }}", category: "{{ row.category }}", total: {{ row.total }} },
             {% endfor %}
         ];
 
-        // 2. Extract unique months for the X-axis
+      
         const barLabels = [...new Set(rawBarData.map(d => d.month))];
 
-        // 3. Extract unique categories to create the color stacks
+        
         const categoriesList = [...new Set(rawBarData.map(d => d.category))];
-        const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']; // Matches your doughnut colors
-
-        // 4. Build the datasets dynamically
+        const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']; 
+        
         const barDatasets = categoriesList.map((cat, index) => {
             return {
                 label: cat,
@@ -191,7 +190,7 @@
                     return match ? match.total : 0;
                 }),
                 borderRadius: 4,
-                maxBarThickness: 30 // Keeps the bars from getting too wide
+                maxBarThickness: 30 
             };
         });
 
@@ -208,30 +207,30 @@
                 },
                 scales: {
                     x: { 
-                        // Removed stacked: true
+                       
                         ticks: { color: '#9CA3AF' }, 
                         grid: { display: false } 
                     },
                     y: { 
-                        // Removed stacked: true
+                     
                         ticks: { color: '#9CA3AF' }, 
                         grid: { color: '#374151' } 
                     }
                 }
             }
         });
-       // --- NEW: Interactive Table Sorting ---
+      
         function sortTable(n) {
             var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
             table = document.getElementById("expenseTable");
             switching = true;
-            dir = "asc"; // Set the sorting direction to ascending
+            dir = "asc"; 
 
             while (switching) {
                 switching = false;
                 rows = table.getElementsByTagName("TR");
 
-                // Loop through all table rows (except the headers in position 0):
+                
                 for (i = 1; i < (rows.length - 1); i++) {
                     shouldSwitch = false;
                     x = rows[i].getElementsByTagName("TD")[n];
@@ -240,7 +239,6 @@
                     let valX = x.innerHTML.toLowerCase();
                     let valY = y.innerHTML.toLowerCase();
                     
-                    // If sorting the Amount or ID column, treat as numbers instead of text
                     if (!isNaN(parseFloat(valX)) && !isNaN(parseFloat(valY))) {
                         valX = parseFloat(valX);
                         valY = parseFloat(valY);
